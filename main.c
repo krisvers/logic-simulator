@@ -120,64 +120,51 @@ bool * evaluate_circuit(circuit_t * circuit) {
 int main(int argc, char ** argv) {
 	argc = argc;
 	circuit_t circuit;
-	gate_t * agate = malloc(sizeof(gate_t));
-	if (agate == NULL) { printf("xgate fail\n"); return -1; }
-	gate_t * agate2 = malloc(sizeof(gate_t));
-	if (agate2 == NULL) { printf("xgate fail\n"); return -1; }
-	gate_t * xgate = malloc(sizeof(gate_t));
-	if (xgate == NULL) { printf("xgate fail\n"); return -1; }
-	gate_t * xgate2 = malloc(sizeof(gate_t));
-	if (xgate2 == NULL) { printf("xgate fail\n"); return -1; }
-	gate_t * ogate = malloc(sizeof(gate_t));
-	if (ogate == NULL) { printf("xgate fail\n"); return -1; }
-	input_t * a = malloc(sizeof(input_t));
-	if (a == NULL) { printf("input fail\n"); return -1; }
-	input_t * b = malloc(sizeof(input_t));
-	if (b == NULL) { printf("input fail\n"); return -1; }
-	input_t * c = malloc(sizeof(input_t));
-	if (c == NULL) { printf("input fail\n"); return -1; }
-
+	gate_t xgate, ogate, xgate2, agate, agate2;
+	input_t a, b, c;
+	
 	circuit.num_outputs = 2;
 	circuit.outputs = malloc(sizeof(output_t *) * circuit.num_outputs);
 	circuit.outputs[0] = malloc(sizeof(output_t));
 	circuit.outputs[1] = malloc(sizeof(output_t));
 
 	circuit.outputs[0]->type = TYPE_OUTPUT;
-	circuit.outputs[0]->left = (void *) xgate2;
+	circuit.outputs[0]->left = &xgate;
+
 	circuit.outputs[1]->type = TYPE_OUTPUT;
-	circuit.outputs[1]->left = (void *) ogate;
+	circuit.outputs[1]->left = &ogate;
+	
+	xgate.type = TYPE_GATE;
+	xgate.gate = GATE_XOR;
+	xgate.left = &xgate2;
+	xgate.right = &c;
 
-	xgate2->type = TYPE_GATE;
-	xgate2->gate = GATE_XOR;
-	xgate2->left = xgate;
-	xgate2->right = c;
+	xgate2.type = TYPE_GATE;
+	xgate2.gate = GATE_XOR;
+	xgate2.left = &a;
+	xgate2.right = &b;
 
-	xgate->type = TYPE_GATE;
-	xgate->gate = GATE_XOR;
-	xgate->left = a;
-	xgate->right = b;
+	ogate.type = TYPE_GATE;
+	ogate.gate = GATE_OR;
+	ogate.left = &agate;
+	ogate.right = &agate2;
 
-	ogate->type = TYPE_GATE;
-	ogate->gate = GATE_OR;
-	ogate->left = agate;
-	ogate->right = agate2;
+	agate.type = TYPE_GATE;
+	agate.gate = GATE_AND;
+	agate.left = &xgate2;
+	agate.right = &c;
 
-	agate->type = TYPE_GATE;
-	agate->gate = GATE_AND;
-	agate->left = xgate;
-	agate->right = c;
+	agate2.type = TYPE_GATE;
+	agate2.gate = GATE_AND;
+	agate2.left = &a;
+	agate2.right = &b;
 
-	agate2->type = TYPE_GATE;
-	agate2->gate = GATE_AND;
-	agate2->left = a;
-	agate2->right = b;
-
-	a->type = TYPE_INPUT;
-	a->signal = atoi(argv[1]);
-	b->type = TYPE_INPUT;
-	b->signal = atoi(argv[2]);
-	c->type = TYPE_INPUT;
-	c->signal = atoi(argv[3]);
+	a.type = TYPE_INPUT;
+	a.signal = atoi(argv[1]);
+	b.type = TYPE_INPUT;
+	b.signal = atoi(argv[2]);
+	c.type = TYPE_INPUT;
+	c.signal = atoi(argv[3]);
 
 	bool * out = evaluate_circuit(&circuit);
 

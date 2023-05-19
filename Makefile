@@ -1,5 +1,5 @@
 CC = gcc
-CCFLAGS = -Wall -Werror -Wextra -Wpedantic -std=c99 -Iinclude
+CCFLAGS = -std=c99 -Wall -Werror -Wextra -Wpedantic -Iinclude
 CFILES = $(shell find . -type f -name "*.c")
 OUTFILE = ./bin/logic
 
@@ -9,5 +9,4 @@ build:
 	$(CC) $(CFILES) -o $(OUTFILE) $(CCFLAGS)
 
 clean:
-	rm -rf bin
-	mkdir bin
+	@rm -f ./test-dfs

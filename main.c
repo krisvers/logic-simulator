@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <type.h>
-#include <stack.h>
 
 #define HIGH 1
 #define LOW 0
@@ -48,8 +46,6 @@ typedef struct {
 	unsigned char type : 2;
 	size_t num_outputs;
 	output_t ** outputs;
-	size_t num_inputs;
-	input_t ** inputs;
 } circuit_t;
 
 bool evaluate(generic_t * node);
@@ -61,37 +57,33 @@ bool evaluate(generic_t * node) {
 
 	switch (node->type) {
 		case TYPE_CIRCUIT:
-			return 0;
+			return LOW;
 		case TYPE_INPUT:
 			return ((input_t *) node)->signal;
 		case TYPE_GATE:
 			left = (generic_t *) ((gate_t *) node)->left;
 			right = (generic_t *) ((gate_t *) node)->right;
 			if (left == NULL) {
-				printf("left == NULL\n");
-				lvalue = 0;
+				lvalue = LOW;
 			} else {
-				printf("left != NULL\n");
 				lvalue = evaluate(left);
 			}
 
 			if (right == NULL) {
-				printf("right == NULL\n");
-				rvalue = 0;
+				rvalue = LOW;
 			} else {
-				printf("right != NULL\n");
 				rvalue = evaluate(right);
 			}
 
 			switch (((gate_t *) node)->gate) {
 				case GATE_NOT:
-					return (lvalue == 1) ? 0 : 1;
+					return (lvalue == HIGH) ? LOW : HIGH;
 				case GATE_AND:
-					return (lvalue == 1 && rvalue == 1) ? 1 : 0;
+					return (lvalue == HIGH && rvalue == HIGH) ? HIGH : LOW;
 				case GATE_OR:
-					return (lvalue == 1 || rvalue == 1) ? 1 : 0;
+					return (lvalue == HIGH || rvalue == HIGH) ? HIGH : LOW;
 				case GATE_XOR:
-					return ((lvalue == 1 && rvalue == 0) || (rvalue == 1 && lvalue == 0)) ? 1 : 0;
+					return ((lvalue == HIGH && rvalue == LOW) || (rvalue == HIGH && lvalue == LOW)) ? HIGH : LOW;
 				default:
 					fprintf(stderr, "evaluate(): invalid gate type %u\n", ((gate_t *) node)->gate);
 					abort();
@@ -100,43 +92,100 @@ bool evaluate(generic_t * node) {
 			left = (generic_t *) ((gate_t *) node)->left;
 			right = (generic_t *) ((gate_t *) node)->right;
 			if (left == NULL) {
-				lvalue = 0;
+				lvalue = LOW;
 			} else {
 				lvalue = evaluate(left);
 			}
 
 			return lvalue;
-		default: return 0;
+		default: return LOW;
 	}
 }
 
-int main(void) {
+bool * evaluate_circuit(circuit_t * circuit) {
+	size_t i;
+	bool * outputs = malloc(circuit->num_outputs * sizeof(bool));
+	if (outputs == NULL) {
+		fprintf(stderr, "error: evaluate_circuit(): malloc(circuit->num_outputs * sizeof(bool)) failed\n");
+		abort();
+	}
+
+	for (i = 0; i < circuit->num_outputs; ++i) {
+		outputs[i] = evaluate((generic_t *) circuit->outputs[i]);
+	}
+
+	return outputs;
+}
+
+int main(int argc, char ** argv) {
+	argc = argc;
 	circuit_t circuit;
-	gate_t * ngate = malloc(sizeof(gate_t));
-	if (ngate == NULL) { printf("ngate fail\n"); return -1; }
+	gate_t * agate = malloc(sizeof(gate_t));
+	if (agate == NULL) { printf("xgate fail\n"); return -1; }
+	gate_t * agate2 = malloc(sizeof(gate_t));
+	if (agate2 == NULL) { printf("xgate fail\n"); return -1; }
+	gate_t * xgate = malloc(sizeof(gate_t));
+	if (xgate == NULL) { printf("xgate fail\n"); return -1; }
+	gate_t * xgate2 = malloc(sizeof(gate_t));
+	if (xgate2 == NULL) { printf("xgate fail\n"); return -1; }
+	gate_t * ogate = malloc(sizeof(gate_t));
+	if (ogate == NULL) { printf("xgate fail\n"); return -1; }
 	input_t * a = malloc(sizeof(input_t));
 	if (a == NULL) { printf("input fail\n"); return -1; }
 	input_t * b = malloc(sizeof(input_t));
 	if (b == NULL) { printf("input fail\n"); return -1; }
+	input_t * c = malloc(sizeof(input_t));
+	if (c == NULL) { printf("input fail\n"); return -1; }
 
-	circuit.num_outputs = 1;
+	circuit.num_outputs = 2;
 	circuit.outputs = malloc(sizeof(output_t *) * circuit.num_outputs);
 	circuit.outputs[0] = malloc(sizeof(output_t));
-	circuit.num_inputs = 1;
-	circuit.inputs = malloc(sizeof(input_t) * circuit.num_inputs);
+	circuit.outputs[1] = malloc(sizeof(output_t));
 
 	circuit.outputs[0]->type = TYPE_OUTPUT;
-	circuit.outputs[0]->left = (void *) ngate;
-	ngate->type = TYPE_GATE;
-	ngate->gate = GATE_XOR;
-	ngate->left = a;
-	ngate->right = b;
-	a->type = TYPE_INPUT;
-	a->signal = 0;
-	b->type = TYPE_INPUT;
-	b->signal = 1;
+	circuit.outputs[0]->left = (void *) xgate2;
+	circuit.outputs[1]->type = TYPE_OUTPUT;
+	circuit.outputs[1]->left = (void *) ogate;
 
-	printf("%u\n", evaluate((generic_t *) circuit.outputs[0]));
+	xgate2->type = TYPE_GATE;
+	xgate2->gate = GATE_XOR;
+	xgate2->left = xgate;
+	xgate2->right = c;
+
+	xgate->type = TYPE_GATE;
+	xgate->gate = GATE_XOR;
+	xgate->left = a;
+	xgate->right = b;
+
+	ogate->type = TYPE_GATE;
+	ogate->gate = GATE_OR;
+	ogate->left = agate;
+	ogate->right = agate2;
+
+	agate->type = TYPE_GATE;
+	agate->gate = GATE_AND;
+	agate->left = xgate;
+	agate->right = c;
+
+	agate2->type = TYPE_GATE;
+	agate2->gate = GATE_AND;
+	agate2->left = a;
+	agate2->right = b;
+
+	a->type = TYPE_INPUT;
+	a->signal = atoi(argv[1]);
+	b->type = TYPE_INPUT;
+	b->signal = atoi(argv[2]);
+	c->type = TYPE_INPUT;
+	c->signal = atoi(argv[3]);
+
+	bool * out = evaluate_circuit(&circuit);
+
+	for (size_t i = 0; i < circuit.num_outputs; ++i) {
+		printf("%llu: %u\n", (long long unsigned int) i, out[i]);
+	}
+
+	free(out);
 
 	return 0;
 }

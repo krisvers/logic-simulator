@@ -62,7 +62,7 @@ typedef struct {
 typedef struct {
 	unsigned char type : 2;
 	size_t num_inputs;
-	input_t ** outputs;
+	input_t ** inputs;
 	size_t num_outputs;
 	output_t ** outputs;
 } circuit_t;
@@ -153,12 +153,6 @@ int main() {
 	r_init();
 	r_bind_window(win);
 	
-	for (int w = 0; w < WIN_TARGET_WIDTH; ++w) {
-		for (int h = 0; h < WIN_TARGET_HEIGHT; h++) {
-			r_draw(w, h, w ^ h);
-		}
-	}
-
 	textures[0] = ui_texture_new_from_file(24, 16, "./resources/2in1out.raw");
 	textures[1] = ui_texture_new_from_file(24, 16, "./resources/1in1out.raw");
 
@@ -167,7 +161,7 @@ int main() {
 	ui_textured_obj_load_tex((textured_obj_t *) rect, (byte *) textures[0]);
 	ui_textured_obj_load_tex((textured_obj_t *) rect2, (byte *) textures[1]);
 
-	while (!global_should_close() && !glfwWindowShouldClose((GLFWwindow *) win->gwin)) {
+	while (!global.close && !glfwWindowShouldClose((GLFWwindow *) win->gwin)) {
 		i_update();
 		ui_textured_rect_draw(rect);
 		ui_textured_rect_draw(rect2);

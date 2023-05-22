@@ -7,7 +7,6 @@ typedef struct GLOBAL {
 	bool close : 1;
 } GLOBAL_t;
 
-void global_close();
-bool global_should_close();
+extern GLOBAL_t global;
 
 #endif

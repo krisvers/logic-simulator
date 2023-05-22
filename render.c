@@ -47,6 +47,7 @@ void r_update() {
 	R_FB_CHECK("r_update()");
 
 	glClear(GL_COLOR_BUFFER_BIT);
+	glClearColor(0.133333333f, 0.125490f, 0.203921f, 1.0f);
 
 	glDrawPixels(win->w, win->h, GL_RGB, GL_UNSIGNED_BYTE, win->fb);
 

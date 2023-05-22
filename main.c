@@ -2,6 +2,18 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
+#include <interface.h>
+#include <global.h>
+#include <render.h>
+#include <ui.h>
+#include <keys.h>
+#include <fileio.h>
+#include <GLFW/glfw3.h>
+
+#include "CONFIG.h"
+
+#define RGB(value) (value >> 16) & 0xFF, (value >> 8) & 0xFF, (value & 0xFF)
 
 #define HIGH 1
 #define LOW 0
@@ -15,8 +27,6 @@
 #define TYPE_GATE 1
 #define TYPE_INPUT 2
 #define TYPE_OUTPUT 3
-
-typedef unsigned char bool;
 
 typedef struct {
 	unsigned char type : 2;
@@ -47,6 +57,8 @@ typedef struct {
 	size_t num_outputs;
 	output_t ** outputs;
 } circuit_t;
+
+window_t * win;
 
 bool evaluate(generic_t * node);
 bool evaluate(generic_t * node) {
@@ -117,62 +129,31 @@ bool * evaluate_circuit(circuit_t * circuit) {
 	return outputs;
 }
 
-int main(int argc, char ** argv) {
-	argc = argc;
-	circuit_t circuit;
-	gate_t xgate, ogate, xgate2, agate, agate2;
-	input_t a, b, c;
+int main() {
+	i_init();
+	win = i_window_new(WIN_WIDTH, WIN_HEIGHT, WIN_TARGET_WIDTH, WIN_TARGET_HEIGHT, "window");
+	r_init();
+	r_bind_window(win);
 	
-	circuit.num_outputs = 2;
-	circuit.outputs = malloc(sizeof(output_t *) * circuit.num_outputs);
-	circuit.outputs[0] = malloc(sizeof(output_t));
-	circuit.outputs[1] = malloc(sizeof(output_t));
-
-	circuit.outputs[0]->type = TYPE_OUTPUT;
-	circuit.outputs[0]->left = &xgate;
-
-	circuit.outputs[1]->type = TYPE_OUTPUT;
-	circuit.outputs[1]->left = &ogate;
-	
-	xgate.type = TYPE_GATE;
-	xgate.gate = GATE_XOR;
-	xgate.left = &xgate2;
-	xgate.right = &c;
-
-	xgate2.type = TYPE_GATE;
-	xgate2.gate = GATE_XOR;
-	xgate2.left = &a;
-	xgate2.right = &b;
-
-	ogate.type = TYPE_GATE;
-	ogate.gate = GATE_OR;
-	ogate.left = &agate;
-	ogate.right = &agate2;
-
-	agate.type = TYPE_GATE;
-	agate.gate = GATE_AND;
-	agate.left = &xgate2;
-	agate.right = &c;
-
-	agate2.type = TYPE_GATE;
-	agate2.gate = GATE_AND;
-	agate2.left = &a;
-	agate2.right = &b;
-
-	a.type = TYPE_INPUT;
-	a.signal = atoi(argv[1]);
-	b.type = TYPE_INPUT;
-	b.signal = atoi(argv[2]);
-	c.type = TYPE_INPUT;
-	c.signal = atoi(argv[3]);
-
-	bool * out = evaluate_circuit(&circuit);
-
-	for (size_t i = 0; i < circuit.num_outputs; ++i) {
-		printf("%llu: %u\n", (long long unsigned int) i, out[i]);
+	for (int w = 0; w < WIN_TARGET_WIDTH; ++w) {
+		for (int h = 0; h < WIN_TARGET_HEIGHT; h++) {
+			r_draw(w, h, w ^ h);
+		}
 	}
 
-	free(out);
+	byte * texture = ui_texture_new_from_file(24, 16, "./resources/test.raw");
+
+	textured_rect_t * rect = ui_textured_rect_new(24, 16);
+	ui_textured_obj_load_tex((textured_obj_t *) rect, (byte *) texture);
+
+	while (!global_should_close() && !glfwWindowShouldClose((GLFWwindow *) win->gwin)) {
+		i_update();
+		ui_textured_rect_draw(rect);
+		r_update();
+	}
+
+	i_window_free(win);
+	i_exit();
 
 	return 0;
 }

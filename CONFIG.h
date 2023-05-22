@@ -7,4 +7,6 @@
 #define WIN_TARGET_WIDTH 200
 #define WIN_TARGET_HEIGHT 150
 
+#define TEXTURE_NUM 2
+
 #endif

@@ -23,9 +23,9 @@
 #define GATE_AND 2
 #define GATE_XOR 3
 
-#define TYPE_CIRCUIT 0
+#define TYPE_INPUT 0
 #define TYPE_GATE 1
-#define TYPE_INPUT 2
+#define TYPE_CONSTANT 2
 #define TYPE_OUTPUT 3
 
 typedef struct {
@@ -43,6 +43,13 @@ typedef struct {
 typedef struct {
 	unsigned char type : 2;
 	bool signal : 1;
+} constant_t;
+
+typedef struct {
+	unsigned char type : 2;
+	bool signal : 1;
+	void * left;
+	void * right;
 } input_t;
 
 typedef struct {
@@ -54,6 +61,8 @@ typedef struct {
 
 typedef struct {
 	unsigned char type : 2;
+	size_t num_inputs;
+	input_t ** outputs;
 	size_t num_outputs;
 	output_t ** outputs;
 } circuit_t;
@@ -68,10 +77,17 @@ bool evaluate(generic_t * node) {
 	bool rvalue;
 
 	switch (node->type) {
-		case TYPE_CIRCUIT:
-			return LOW;
 		case TYPE_INPUT:
-			return ((input_t *) node)->signal;
+			left = (generic_t *) ((input_t *) node)->left;
+			if (left == NULL) {
+				lvalue = LOW;
+			} else {
+				lvalue = evaluate(left);
+			}
+
+			return lvalue;
+		case TYPE_CONSTANT:
+			return ((constant_t *) node)->signal;
 		case TYPE_GATE:
 			left = (generic_t *) ((gate_t *) node)->left;
 			right = (generic_t *) ((gate_t *) node)->right;
@@ -129,6 +145,8 @@ bool * evaluate_circuit(circuit_t * circuit) {
 	return outputs;
 }
 
+byte * textures[TEXTURE_NUM];
+
 int main() {
 	i_init();
 	win = i_window_new(WIN_WIDTH, WIN_HEIGHT, WIN_TARGET_WIDTH, WIN_TARGET_HEIGHT, "window");
@@ -141,14 +159,18 @@ int main() {
 		}
 	}
 
-	byte * texture = ui_texture_new_from_file(24, 16, "./resources/test.raw");
+	textures[0] = ui_texture_new_from_file(24, 16, "./resources/2in1out.raw");
+	textures[1] = ui_texture_new_from_file(24, 16, "./resources/1in1out.raw");
 
-	textured_rect_t * rect = ui_textured_rect_new(24, 16);
-	ui_textured_obj_load_tex((textured_obj_t *) rect, (byte *) texture);
+	textured_rect_t * rect = ui_textured_rect_new(2, 0, 24, 16);
+	textured_rect_t * rect2 = ui_textured_rect_new(40, 0, 24, 16);
+	ui_textured_obj_load_tex((textured_obj_t *) rect, (byte *) textures[0]);
+	ui_textured_obj_load_tex((textured_obj_t *) rect2, (byte *) textures[1]);
 
 	while (!global_should_close() && !glfwWindowShouldClose((GLFWwindow *) win->gwin)) {
 		i_update();
 		ui_textured_rect_draw(rect);
+		ui_textured_rect_draw(rect2);
 		r_update();
 	}
 

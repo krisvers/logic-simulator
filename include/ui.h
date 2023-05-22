@@ -23,9 +23,9 @@ typedef struct textured_rect_t {
 	unsigned int y;
 } textured_rect_t;
 
-rect_t * ui_rect_new(unsigned int w, unsigned int h, unsigned int color);
+rect_t * ui_rect_new(unsigned int x, unsigned int y, unsigned int w, unsigned int h, unsigned int color);
 void ui_rect_draw(rect_t * rect);
-textured_rect_t * ui_textured_rect_new(unsigned int w, unsigned int h);
+textured_rect_t * ui_textured_rect_new(unsigned int x, unsigned int y, unsigned int w, unsigned int h);
 void ui_textured_rect_draw(textured_rect_t * rect);
 void ui_textured_obj_copy_tex(textured_obj_t * obj, unsigned int w, unsigned int h, byte * tex);
 void ui_textured_obj_load_tex(textured_obj_t * obj, byte * tex);

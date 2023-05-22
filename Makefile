@@ -1,6 +1,6 @@
 CC = gcc
 WINCC = i686-w64-mingw32-gcc
-CCFLAGS = -Iinclude -Wall -Wpedantic -Wextra -std=c99 -fanalyzer -O2
+CCFLAGS = -Iinclude -Wall -Wpedantic -Wextra -std=c99 -O2
 WINCCFLAGS = -mwindows
 CCLIBS = -lglfw -lGL
 WINCCLIBS = -Llib -lglfw3 -lopengl32 -lgdi32 -lkernel32 -lmingw32 -DGLFW_DLL

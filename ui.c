@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-rect_t * ui_rect_new(unsigned int x, unsigned int y, unsigned int w, unsigned int h, unsigned int color) {
+rect_t * ui_rect_new(int x, int y, unsigned int w, unsigned int h, unsigned int color) {
 	rect_t * r = malloc(sizeof(rect_t));
 	if (r == NULL) {
 		fprintf(stderr, "Failed to allocate memory for rectangle\n");
@@ -29,7 +29,7 @@ void ui_rect_draw(rect_t * rect) {
 	}
 }
 
-textured_rect_t * ui_textured_rect_new(unsigned int x, unsigned int y, unsigned int w, unsigned int h) {
+textured_rect_t * ui_textured_rect_new(int x, int y, unsigned int w, unsigned int h) {
 	textured_rect_t * r = malloc(sizeof(textured_rect_t));
 	if (r == NULL) {
 		fprintf(stderr, "Failed to allocate memory for textured rectangle\n");
@@ -68,10 +68,12 @@ void ui_textured_obj_free(textured_obj_t * obj) {
 	free(obj);
 }
 
+void ui_draw_checker_texture(int x, int y, unsigned int w, unsigned int h);
+
 void ui_textured_rect_draw(textured_rect_t * rect) {
 	if (rect->tex == NULL) {
-		fprintf(stderr, "No texture to draw\n");
-		abort();
+		fprintf(stderr, "rect %p has no texture to draw\n", rect->tex);
+		
 	}
 
 	for (unsigned int w = 0; w < rect->w; ++w) {

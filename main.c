@@ -157,13 +157,13 @@ int main() {
 	textures[1] = ui_texture_new_from_file(24, 16, "./resources/1in1out.raw");
 
 	textured_rect_t * rect = ui_textured_rect_new(2, 0, 24, 16);
-	textured_rect_t * rect2 = ui_textured_rect_new(40, 0, 24, 16);
+	textured_rect_t * rect2 = ui_textured_rect_new(0, 0, 24, 16);
 	ui_textured_obj_load_tex((textured_obj_t *) rect, (byte *) textures[0]);
 	ui_textured_obj_load_tex((textured_obj_t *) rect2, (byte *) textures[1]);
 
 	while (!global.close && !glfwWindowShouldClose((GLFWwindow *) win->gwin)) {
 		i_update();
-		ui_textured_rect_draw(rect);
+//		ui_textured_rect_draw(rect);
 		ui_textured_rect_draw(rect2);
 		r_update();
 	}

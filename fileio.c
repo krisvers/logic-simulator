@@ -1,5 +1,6 @@
 #include <fileio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 
 void fileio_write_raw_image(unsigned char * ptr, unsigned long long length, const char * filename) {
@@ -17,7 +18,7 @@ void fileio_write_raw_image(unsigned char * ptr, unsigned long long length, cons
 	fclose(fp);
 }
 
-unsigned char * fileio_load_raw_image(unsigned char * ptr, const char * filename) {
+unsigned char * fileio_load_file(unsigned char * ptr, const char * filename) {
 	FILE * fp = fopen(filename, "r");
 	if (fp == NULL) {
 		fprintf(stderr, "Can't open file %s for loading raw image\n", filename);
@@ -35,4 +36,20 @@ unsigned char * fileio_load_raw_image(unsigned char * ptr, const char * filename
 
 	fclose(fp);
 	return ptr;
+}
+
+size_t fileio_size(const char * filename) {
+	FILE * fp = fopen(filename, "r");
+	if (fp == NULL) {
+		fprintf("File %s can't be read from\n", filename);
+		return 0;
+	}
+
+	fseek(fp, 0L, SEEK_END);
+	size_t size = ftell(fp);
+	fseek(fp, 0L, SEEK_SET);
+
+	fclose(fp);
+
+	return size;
 }

@@ -7,6 +7,7 @@
 #include <global.h>
 #include <render.h>
 #include <ui.h>
+#include <image.h>
 #include <keys.h>
 #include <fileio.h>
 #include <GLFW/glfw3.h>
@@ -146,6 +147,7 @@ bool * evaluate_circuit(circuit_t * circuit) {
 }
 
 byte * textures[TEXTURE_NUM];
+bmp_t * bitmap;
 
 int main() {
 	i_init();
@@ -153,18 +155,14 @@ int main() {
 	r_init();
 	r_bind_window(win);
 	
-	textures[0] = ui_texture_new_from_file(24, 16, "./resources/2in1out.raw");
-	textures[1] = ui_texture_new_from_file(24, 16, "./resources/1in1out.raw");
+	bitmap = image_load_bmp("./resources/bmp_24.bmp");
 
-	textured_rect_t * rect = ui_textured_rect_new(2, 0, 24, 16);
-	textured_rect_t * rect2 = ui_textured_rect_new(0, 0, 24, 16);
-	ui_textured_obj_load_tex((textured_obj_t *) rect, (byte *) textures[0]);
-	ui_textured_obj_load_tex((textured_obj_t *) rect2, (byte *) textures[1]);
+	//textured_rect_t * rect = ui_textured_rect_new(0, 0, 200, 200);
+	//ui_textured_obj_load_tex((textured_obj_t *) rect, (byte *) );
 
 	while (!global.close && !glfwWindowShouldClose((GLFWwindow *) win->gwin)) {
 		i_update();
 //		ui_textured_rect_draw(rect);
-		ui_textured_rect_draw(rect2);
 		r_update();
 	}
 

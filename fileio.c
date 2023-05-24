@@ -3,21 +3,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-void fileio_write_raw_image(unsigned char * ptr, unsigned long long length, const char * filename) {
-	FILE * fp = fopen(filename, "w");
-	if (fp == NULL) {
-		fprintf(stderr, "Can't open file %s for loading raw image\n", filename);
-		abort();
-	}
-
-	if (fwrite(ptr, 1, length, fp) != 1) {
-		fprintf(stderr, "Failed to write to file %s for saving raw image\n", filename);
-		abort();
-	}
-
-	fclose(fp);
-}
-
 unsigned char * fileio_load_file(unsigned char * ptr, const char * filename) {
 	FILE * fp = fopen(filename, "r");
 	if (fp == NULL) {
@@ -41,7 +26,7 @@ unsigned char * fileio_load_file(unsigned char * ptr, const char * filename) {
 size_t fileio_size(const char * filename) {
 	FILE * fp = fopen(filename, "r");
 	if (fp == NULL) {
-		fprintf("File %s can't be read from\n", filename);
+		fprintf(stderr, "File %s can't be read from\n", filename);
 		return 0;
 	}
 

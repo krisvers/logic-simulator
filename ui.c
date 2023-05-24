@@ -100,7 +100,7 @@ byte * ui_texture_new(unsigned int w, unsigned int h) {
 
 byte * ui_texture_new_from_file(unsigned int w, unsigned int h, const char * filename) {
 	byte * tex = ui_texture_new(w, h);
-	fileio_load_raw_image(tex, filename);
+	fileio_load_file(tex, filename);
 
 	return tex;
 }

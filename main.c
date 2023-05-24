@@ -3,14 +3,6 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include <interface.h>
-#include <global.h>
-#include <render.h>
-#include <ui.h>
-#include <image.h>
-#include <keys.h>
-#include <fileio.h>
-#include <GLFW/glfw3.h>
 
 #include "CONFIG.h"
 
@@ -67,8 +59,6 @@ typedef struct {
 	size_t num_outputs;
 	output_t ** outputs;
 } circuit_t;
-
-window_t * win;
 
 bool evaluate(generic_t * node);
 bool evaluate(generic_t * node) {
@@ -146,28 +136,6 @@ bool * evaluate_circuit(circuit_t * circuit) {
 	return outputs;
 }
 
-byte * textures[TEXTURE_NUM];
-bmp_t * bitmap;
-
 int main() {
-	i_init();
-	win = i_window_new(WIN_WIDTH, WIN_HEIGHT, WIN_TARGET_WIDTH, WIN_TARGET_HEIGHT, "window");
-	r_init();
-	r_bind_window(win);
-	
-	bitmap = image_load_bmp("./resources/bmp_24.bmp");
-
-	//textured_rect_t * rect = ui_textured_rect_new(0, 0, 200, 200);
-	//ui_textured_obj_load_tex((textured_obj_t *) rect, (byte *) );
-
-	while (!global.close && !glfwWindowShouldClose((GLFWwindow *) win->gwin)) {
-		i_update();
-//		ui_textured_rect_draw(rect);
-		r_update();
-	}
-
-	i_window_free(win);
-	i_exit();
-
 	return 0;
 }

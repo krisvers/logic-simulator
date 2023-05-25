@@ -137,19 +137,18 @@ bool * evaluate_circuit(circuit_t * circuit) {
 	return outputs;
 }
 
-circuit_t * circuit_new(size_t inputs, size_t outputs) {
-	circuit_t * c = malloc(sizeof(circuit_t));
-	if (c == NULL) {
-		fprintf(stderr, "error: circuit_new(): malloc(sizeof(circuit_t)) failed\n");
+output_t * output_new() {
+	output_t * o = malloc(sizeof(output_t));
+	if (o == NULL) {
+		fprintf(stderr, "error: output_new(): malloc(sizeof(output_t)) failed\n");
 		abort();
 	}
 
-	c->num_inputs = inputs;
-	c->inputs = malloc(sizeof(input_t *) * inputs);
-	c->num_outputs = outputs;
-	c->outputs = malloc(sizeof(output_t *) * outputs);
+	o->type = TYPE_OUTPUT;
+	o->signal = LOW;
+	o->left = NULL;
 
-	return c;
+	return o;
 }
 
 input_t * input_new() {
@@ -164,6 +163,46 @@ input_t * input_new() {
 	i->signal = LOW;
 
 	return i;
+}
+
+circuit_t * circuit_new(size_t inputs, size_t outputs) {
+	circuit_t * c = malloc(sizeof(circuit_t));
+	if (c == NULL) {
+		fprintf(stderr, "error: circuit_new(): malloc(sizeof(circuit_t)) failed\n");
+		abort();
+	}
+
+	c->num_inputs = inputs;
+	c->inputs = malloc(sizeof(input_t *) * inputs);
+	for (size_t i = 0; i < inputs; ++i) {
+		c->inputs[i] = input_new();
+	}
+
+	c->num_outputs = outputs;
+	c->outputs = malloc(sizeof(output_t *) * outputs);
+	for (size_t i = 0; i < outputs; ++i) {
+		c->outputs[i] = output_new();
+	}
+
+	return c;
+}
+
+output_t * circuit_output(circuit_t * c, size_t index) {
+	if (index >= c->num_outputs) {
+		fprintf("error: circuit_output(): invalid index %llu for circuit %p output\n", (long long unsigned int) index, (void *) c);
+		abort();
+	}
+
+	return c->outputs[index];
+}
+
+input_t * circuit_input(circuit_t * c, size_t index) {
+	if (index >= c->num_inputs) {
+		fprintf("error: circuit_input(): invalid index %llu for circuit %p input\n", (long long unsigned int) index, (void *) c);
+		abort();
+	}
+
+	return c->inputs[index];
 }
 
 gate_t * gate_new(unsigned char type) {
@@ -273,39 +312,90 @@ void link_to_output(output_t * o, generic_t * g) {
 	}
 }
 
-void link_to_circuit(circuit_t * c, size_t index, generic_t * g) {
+void link_to_circuit_output(circuit_t * c, size_t index, generic_t * g) {
 	if (index >= c->num_outputs) {
-		fprintf(stderr, "error: link_to_circuit(): invalid index to link generic %p to output of circuit %p\n", (void *) g, (void *) c);
+		fprintf(stderr, "error: link_to_circuit_output(): invalid index to link generic %p to output of circuit %p\n", (void *) g, (void *) c);
 		abort();
 	}
-
-	c->outputs[index] = malloc(sizeof(input_t));
 
 	link_to_output(c->outputs[index], g);
 }
 
+void link_with_circuit_output(circuit_t * c, size_t index, generic_t * g) {
+	if (index >= c->num_outputs) {
+		fprintf(stderr, "error: link_to_circuit_output(): invalid index to link generic %p to output of circuit %p\n", (void *) g, (void *) c);
+		abort();
+	}
+
+	switch (g->type) {
+		case TYPE_INPUT:
+			link_to_input((input_t *) g, (generic_t *) c->outputs[index]);
+			break;
+		case TYPE_GATE:
+			link_to_gate((gate_t *) g, (generic_t *) c->outputs[index]);
+			break;
+		case TYPE_CONSTANT:
+			fprintf(stderr, "error: link_with_circuit_output(): can't link an output to a constant type lol\n");
+			abort();
+		case TYPE_OUTPUT:
+			fprintf(stderr, "error: link_with_circuit_output(): can't link an output to an output type lol\n");
+			abort();
+		default:
+			fprintf(stderr, "error: link_to_output(): can't link type %llu with circuit output %p\n", (long long unsigned int) g->type, (void *) c->outputs[index]);
+			abort();
+	}
+}
+
+void link_to_circuit_input(circuit_t * c, size_t index, generic_t * g) {
+	if (index >= c->num_inputs) {
+		fprintf(stderr, "error: link_to_circuit_input(): invalid index to link generic %p to output of circuit %p\n", (void *) g, (void *) c);
+		abort();
+	}
+
+	link_to_input(c->inputs[index], g);
+}
+
 int main() {
-	circuit_t * circuit = circuit_new(2, 2);
+	circuit_t * circuit = circuit_new(3, 2);
 	gate_t * xor = gate_new(GATE_XOR);
+	gate_t * xor2 = gate_new(GATE_XOR);
 	gate_t * and = gate_new(GATE_AND);
-	input_t * ia = input_new();
-	input_t * ib = input_new();
+	gate_t * and2 = gate_new(GATE_AND);
+	gate_t * or = gate_new(GATE_OR);
+	input_t * ia = circuit_input(circuit, 0);
+	input_t * ib = circuit_input(circuit, 1);
+	input_t * ic = circuit_input(circuit, 2);
 	constant_t * a = constant_new(1);
 	constant_t * b = constant_new(1);
+	constant_t * c = constant_new(1);
 
-	link_to_circuit(circuit, 0, (generic_t *) xor);
-	link_to_circuit(circuit, 1, (generic_t *) and);
+	link_to_input(ia, a);
+	link_to_input(ib, b);
+	link_to_input(ic, c);
 
-	link_to_gate(xor, (generic_t *) ia);
-	link_to_gate(xor, (generic_t *) ib);
+// 1st half adder
+	link_to_gate(and, ia);
+	link_to_gate(and, ib);
 
-	link_to_gate(and, (generic_t *) ia);
-	link_to_gate(and, (generic_t *) ib);
+	link_to_gate(xor, ia);
+	link_to_gate(xor, ib);
 
-	link_to_input(ia, (generic_t *) a);
-	link_to_input(ib, (generic_t *) b);
+// 2nd half adder
+	link_to_gate(xor2, xor);
+	link_to_gate(xor2, ic);
 
-	printf("%u, %u\n", evaluate((generic_t *) circuit->outputs[0]), evaluate((generic_t *) circuit->outputs[1]));
+	link_to_gate(and2, xor);
+	link_to_gate(and2, ic);
+
+// or
+	link_to_gate(or, and);
+	link_to_gate(or, and2);
+
+// link to outputs
+	link_to_circuit_output(circuit, 0, xor2);
+	link_to_circuit_output(circuit, 1, or);
+
+	printf("%u%u\n", evaluate(circuit->outputs[1]), evaluate(circuit->outputs[0]));
 
 	return 0;
 }

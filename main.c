@@ -328,7 +328,7 @@ void link_to_circuit_output(circuit_t * c, size_t index, generic_t * g) {
 
 void link_with_circuit_output(circuit_t * c, size_t index, generic_t * g) {
 	if (index >= c->num_outputs) {
-		fprintf(stderr, "error: link_to_circuit_output(): invalid index to link generic %p to output of circuit %p\n", (void *) g, (void *) c);
+		fprintf(stderr, "error: link_with_circuit_output(): invalid index to link generic %p to output of circuit %p\n", (void *) g, (void *) c);
 		abort();
 	}
 
@@ -343,10 +343,10 @@ void link_with_circuit_output(circuit_t * c, size_t index, generic_t * g) {
 			fprintf(stderr, "error: link_with_circuit_output(): can't link an output to a constant type lol\n");
 			abort();
 		case TYPE_OUTPUT:
-			fprintf(stderr, "error: link_with_circuit_output(): can't link an output to an output type lol\n");
-			abort();
+			link_to_output((output_t *) g, (generic_t *) circuit_output(c, index));
+			break;
 		default:
-			fprintf(stderr, "error: link_to_output(): can't link type %llu with circuit output %p\n", (long long unsigned int) g->type, (void *) c->outputs[index]);
+			fprintf(stderr, "error: link_with_output(): can't link type %llu with circuit output %p\n", (long long unsigned int) g->type, (void *) c->outputs[index]);
 			abort();
 	}
 }
@@ -405,19 +405,58 @@ circuit_t * circuit_new_from_blueprint(circuit_t * c) {
 	return new;
 }
 
+circuit_t * halfadder_new() {
+	circuit_t * c = circuit_new(2, 2);
+	input_t * a = circuit_input(c, 0);
+	input_t * b = circuit_input(c, 1);
+	output_t * s = circuit_output(c, 0);
+	output_t * cout = circuit_output(c, 1);
+	gate_t * xor = gate_new(GATE_XOR);
+	gate_t * and = gate_new(GATE_AND);
+
+	link_to_output(s, (generic_t *) xor);
+	link_to_gate(xor, (generic_t *) a);
+	link_to_gate(xor, (generic_t *) b);
+
+	link_to_output(cout, (generic_t *) and);
+	link_to_gate(and, (generic_t *) a);
+	link_to_gate(and, (generic_t *) b);
+
+	return c;
+}
+
+circuit_t * fulladder_new() {
+	circuit_t * circ = circuit_new(3, 2);
+	circuit_t * x = halfadder_new();
+	circuit_t * y = halfadder_new();
+	input_t * a = circuit_input(circ, 0);
+	input_t * b = circuit_input(circ, 1);
+	input_t * c = circuit_input(circ, 2);
+	gate_t * or = gate_new(GATE_OR);
+
+	link_to_circuit_input(x, 0, (generic_t *) a);
+	link_to_circuit_input(x, 1, (generic_t *) b);
+	link_to_circuit_input(y, 0, (generic_t *) circuit_output(x, 0));
+	link_to_circuit_input(y, 1, (generic_t *) c);
+
+	link_to_gate(or, (generic_t *) circuit_output(y, 1));
+	link_to_gate(or, (generic_t *) circuit_output(x, 1));
+
+	link_to_circuit_output(circ, 0, (generic_t *) circuit_output(y, 0));
+	link_to_circuit_output(circ, 1, (generic_t *) or);
+
+	return circ;
+}
+
 int main(void) {
-	circuit_t * global = circuit_new(3, 2);
-	input_t * ga = circuit_input(global, 0);
-	input_t * gb = circuit_input(global, 1);
-	input_t * gc = circuit_input(global, 2);
-	constant_t * const_a = constant_new(1);
-	constant_t * const_b = constant_new(1);
-	constant_t * const_c = constant_new(1);
-	link_to_input(ga, (generic_t *) const_a);
-	link_to_input(gb, (generic_t *) const_b);
-	link_to_input(gc, (generic_t *) const_c);
+	circuit_t * global = fulladder_new();
+	constant_t * a = constant_new(1);
+	constant_t * b = constant_new(1);
+	constant_t * c = constant_new(1);
+	link_to_circuit_input(global, 0, (generic_t *) a);
+	link_to_circuit_input(global, 1, (generic_t *) b);
+	link_to_circuit_input(global, 2, (generic_t *) c);
 
-	printf("%u%u\n", evaluate((generic_t *) global->outputs[1]), evaluate((generic_t *) global->outputs[0]));
-
+	printf("%u%u%u: %u%u\n", c->signal, a->signal, b->signal, evaluate((generic_t *) circuit_output(global, 1)), evaluate((generic_t *) circuit_output(global, 0)));
 	return 0;
 }

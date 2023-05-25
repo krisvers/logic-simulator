@@ -137,7 +137,7 @@ bool * evaluate_circuit(circuit_t * circuit) {
 	return outputs;
 }
 
-output_t * output_new() {
+output_t * output_new(void) {
 	output_t * o = malloc(sizeof(output_t));
 	if (o == NULL) {
 		fprintf(stderr, "error: output_new(): malloc(sizeof(output_t)) failed\n");
@@ -151,7 +151,7 @@ output_t * output_new() {
 	return o;
 }
 
-input_t * input_new() {
+input_t * input_new(void) {
 	input_t * i = malloc(sizeof(input_t));
 	if (i == NULL) {
 		fprintf(stderr, "error: input_new(): malloc(sizeof(input_t)) failed\n");
@@ -355,7 +355,7 @@ void link_to_circuit_input(circuit_t * c, size_t index, generic_t * g) {
 	link_to_input(c->inputs[index], g);
 }
 
-int main() {
+int main(void) {
 	circuit_t * circuit = circuit_new(3, 2);
 	gate_t * xor = gate_new(GATE_XOR);
 	gate_t * xor2 = gate_new(GATE_XOR);

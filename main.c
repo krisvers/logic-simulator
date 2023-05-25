@@ -74,10 +74,8 @@ bool evaluate(generic_t * node) {
 			}
 
 			node->signal = lvalue;
-			printf("input %p: %u\n", node, node->signal);
 			return lvalue;
 		case TYPE_CONSTANT:
-			printf("constant %p: %u\n", node, node->signal);
 			return node->signal;
 		case TYPE_GATE:
 			left = (generic_t *) ((gate_t *) node)->left;
@@ -97,19 +95,15 @@ bool evaluate(generic_t * node) {
 			switch (((gate_t *) node)->gate) {
 				case GATE_NOT:
 					node->signal = (lvalue == HIGH) ? LOW : HIGH;
-					printf("not gate %p: %u\n", node, node->signal);
 					return node->signal;
 				case GATE_AND:
 					node->signal = (lvalue == HIGH && rvalue == HIGH) ? HIGH : LOW;
-					printf("and gate %p: %u\n", node, node->signal);
 					return node->signal;
 				case GATE_OR:
 					node->signal = (lvalue == HIGH || rvalue == HIGH) ? HIGH : LOW;
-					printf("or gate %p: %u\n", node, node->signal);
 					return node->signal;
 				case GATE_XOR:
 					node->signal = ((lvalue == HIGH && rvalue == LOW) || (rvalue == HIGH && lvalue == LOW)) ? HIGH : LOW;
-					printf("xor gate %p: %u\n", node, node->signal);
 					return node->signal;
 				default:
 					fprintf(stderr, "evaluate(): invalid gate type %u\n", ((gate_t *) node)->gate);
@@ -125,7 +119,6 @@ bool evaluate(generic_t * node) {
 			}
 
 			node->signal = lvalue;
-			printf("output %p: %u\n", node, node->signal);
 			return lvalue;
 		default: node->signal = LOW; return LOW;
 	}
@@ -367,8 +360,8 @@ void link_to_circuit_input(circuit_t * c, size_t index, generic_t * g) {
 	link_to_input(c->inputs[index], g);
 }
 
-generic_t * copy_children(generic_t * g, circuit_t * c);
-generic_t * copy_children(generic_t * g, circuit_t * c) {
+generic_t * copy_children(generic_t * g, circuit_t * c, circuit_t * nc);
+generic_t * copy_children(generic_t * g, circuit_t * c, circuit_t * nc) {
 	if ((void *) g == NULL) {
 		return (generic_t *) NULL;
 	}
@@ -376,31 +369,25 @@ generic_t * copy_children(generic_t * g, circuit_t * c) {
 	generic_t * new;
 	switch (g->type) {
 		case TYPE_INPUT:
-			if ((void *) c == NULL) {
-				new = (generic_t *) input_new();
-			} else {
-				new = (generic_t *) circuit_input(c, ((input_t *) g)->num);
-			}
-
-			((input_t *) new)->left = NULL;//copy_children((generic_t *) ((input_t *) g)->left, c);
+			new = (generic_t *) circuit_input(nc, ((input_t *) g)->num);
+			((input_t *) new)->left = NULL;
+			((input_t *) new)->num = ((input_t *) g)->num;
 			return new;
 		case TYPE_CONSTANT:
 			return (generic_t *) constant_new(((constant_t *) g)->signal);
 		case TYPE_GATE:
 			new = (generic_t *) gate_new(((gate_t *) g)->gate);
-			((gate_t *) new)->left = copy_children((generic_t *) ((gate_t *) g)->left, c);
-			((gate_t *) new)->right = copy_children((generic_t *) ((gate_t *) g)->right, c);
+			((gate_t *) new)->left = copy_children((generic_t *) ((gate_t *) g)->left, c, nc);
+			((gate_t *) new)->right = copy_children((generic_t *) ((gate_t *) g)->right, c, nc);
 			return new;
 		case TYPE_OUTPUT:
-			new = copy_children((generic_t *) ((output_t *) g)->left, c);
+			new = copy_children((generic_t *) ((output_t *) g)->left, c, nc);
 			return new;
 		default:
 			fprintf(stderr, "error: copy_children(): invalid type to copy\n");
 			abort();
 	}
 }
-
-
 
 circuit_t * circuit_new_from_blueprint(circuit_t * c) {
 	circuit_t * new = circuit_new(c->num_inputs, c->num_outputs);
@@ -412,45 +399,25 @@ circuit_t * circuit_new_from_blueprint(circuit_t * c) {
 		}
 		new->outputs[o]->num = o;
 		new->outputs[o]->circuit = new;
-		link_to_circuit_output(new, o, copy_children((generic_t *) c->outputs[o], c));
+		link_to_circuit_output(new, o, copy_children((generic_t *) c->outputs[o], c, new));
 	}
 
 	return new;
 }
 
 int main(void) {
-	circuit_t * ha = circuit_new(2, 2);
-	gate_t * xor = gate_new(GATE_XOR);
-	gate_t * and = gate_new(GATE_AND);
-	input_t * ia = circuit_input(ha, 0);
-	input_t * ib = circuit_input(ha, 1);
-	constant_t * a = constant_new(1);
-	constant_t * b = constant_new(0);
+	circuit_t * global = circuit_new(3, 2);
+	input_t * ga = circuit_input(global, 0);
+	input_t * gb = circuit_input(global, 1);
+	input_t * gc = circuit_input(global, 2);
+	constant_t * const_a = constant_new(1);
+	constant_t * const_b = constant_new(1);
+	constant_t * const_c = constant_new(1);
+	link_to_input(ga, (generic_t *) const_a);
+	link_to_input(gb, (generic_t *) const_b);
+	link_to_input(gc, (generic_t *) const_c);
 
-	link_to_circuit_output(ha, 0, (generic_t *) xor);
-	link_to_gate(xor, (generic_t *) ia);
-	link_to_gate(xor, (generic_t *) ib);
-
-	link_to_circuit_output(ha, 1, (generic_t *) and);
-	link_to_gate(and, (generic_t *) ia);
-	link_to_gate(and, (generic_t *) ib);
-
-	link_to_input(ia, (generic_t *) a);
-	link_to_input(ib, (generic_t *) b);
-
-	circuit_t * ha2 = circuit_new_from_blueprint(ha);
-	gate_t * xor2 = (gate_t *) ha2->outputs[0]->left;
-	gate_t * and2 = (gate_t *) ha2->outputs[1]->left;
-	input_t * ia2 = (input_t *) xor2->left;
-	input_t * ib2 = (input_t *) xor2->right;
-	constant_t * a2 = constant_new(1);
-	constant_t * b2 = constant_new(1);
-
-	link_to_input(ia2, a2);
-	link_to_input(ib2, b2);
-
-	printf("ha: %p %p\nxor: %p %p\nand: %p %p\nia: %p %p\nib: %p %p\na: %p (%u) %p (%u)\nb: %p (%u) %p (%u)\n", ha, ha2, xor, xor2, and, and2, ia, ia2, ib, ib2, a, a->signal, a2, a2->signal, b, b->signal, b2, b2->signal);
-	printf("%u%u\n", evaluate((generic_t *) ha2->outputs[1]), evaluate((generic_t *) ha2->outputs[0]));
+	printf("%u%u\n", evaluate((generic_t *) global->outputs[1]), evaluate((generic_t *) global->outputs[0]));
 
 	return 0;
 }

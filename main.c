@@ -570,11 +570,6 @@ void circuit_save(circuit_t * circuit, char * filename) {
 	printf("debug: circuit %p saved to file %s\n", (void *) circuit, filename);
 }
 
-void component_recurse_load(file_t * file, size_t * index, generic_t * g);
-void component_recurse_load(file_t * file, size_t * index, generic_t * g) {
-
-}
-
 circuit_t * circuit_load(char * filename) {
 	file_t file = fileio_load(filename);
 	circuit_t * circuit = circuit_new(file.buffer[0], file.buffer[1]);
@@ -582,20 +577,15 @@ circuit_t * circuit_load(char * filename) {
 	size_t index = 2;
 
 	// implement recursing through the tree and loading the node type along with some metadata and other data then linking it
-	for (size_t o = 0; o < circuit->num_outputs; ++o) {
-		component_recurse_load(&file, &index, (generic_t *) circuit_output(circuit, o));
-	}
+	
 
 	return circuit;
 }
 
 int main(void) {
-	circuit_t * global = circuit_new(2, 2);
+	circuit_t * global = halfadder_new();
 	constant_t * a = constant_new(1);
 	constant_t * b = constant_new(1);
-
-	link_to_circuit_output(global, 0, (generic_t *) circuit_input(global, 0));
-	link_to_circuit_output(global, 1, (generic_t *) circuit_input(global, 1));
 
 	link_to_circuit_input(global, 0, (generic_t *) a);
 	link_to_circuit_input(global, 1, (generic_t *) b);

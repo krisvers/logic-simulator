@@ -493,48 +493,52 @@ void fileio_save(file_t file, char * filename) {
 	fclose(fp);
 }
 
-void component_recurse_save(file_t * file, size_t index, generic_t * g);
-void component_recurse_save(file_t * file, size_t index, generic_t * g) {
-	if (index >= file->size) {
-		file->buffer = realloc(file->buffer, index + 1);
+void component_recurse_save(file_t * file, size_t * index, generic_t * g);
+void component_recurse_save(file_t * file, size_t * index, generic_t * g) {
+	if (*index >= file->size) {
+		printf("resize\n");
+		file->buffer = realloc(file->buffer, *index + 1);
 		if (file->buffer == NULL) {
-			fprintf(stderr, "error: component_recurse_save(): failure while reallocating file buffer from %llu to size %llu\n", (long long unsigned int) file->size, (long long unsigned int) index + 1);
+			fprintf(stderr, "error: component_recurse_save(): failed to reallocate file buffer to size %llu from %llu\n", (long long unsigned int) *index + 1, (long long unsigned int) file->size);
 			abort();
 		}
-		file->size = index + 1;
 	}
 
 	if (g == NULL) {
-		file->buffer[index + 1] = 0xFF;
-		file->buffer[index] = 0xAA;
+		printf("null\n");
+		file->buffer[*index + 1] = 0xDE;
+		file->buffer[*index] = 0xAD;
+		*index += 2;
 		return;
 	}
 
-	file->buffer[index] = g->type;
+	file->buffer[*index] = g->type;
 	switch (g->type) {
 		case TYPE_INPUT:
-			file->buffer[index + 1] = (unsigned char) ((input_t *) g)->num;
-			component_recurse_save(file, index + 2, (generic_t *) ((input_t *) g)->left);
-			component_recurse_save(file, index + 4, (generic_t *) NULL);
+		case TYPE_OUTPUT:
+			printf("i/o\n");
+			file->buffer[*index + 1] = (unsigned char) ((input_t *) g)->num;
+			printf("buffer %02x%02x\n", file->buffer[*index], file->buffer[*index + 1]);
+			*index += 2;
+			component_recurse_save(file, index, (generic_t *) ((input_t *) g)->left);
 			return;
 		case TYPE_GATE:
-			file->buffer[index + 1] = (unsigned char) ((gate_t *) g)->gate;
-			component_recurse_save(file, index + 2, (generic_t *) ((gate_t *) g)->left);
-			component_recurse_save(file, index + 4, (generic_t *) ((gate_t *) g)->right);
+			printf("gate\n");
+			file->buffer[*index + 1] = ((gate_t *) g)->gate;
+			printf("buffer %02x%02x\n", file->buffer[*index], file->buffer[*index + 1]);
+			*index += 2;
+			component_recurse_save(file, index, (generic_t *) ((gate_t *) g)->left);
+			component_recurse_save(file, index, (generic_t *) ((gate_t *) g)->right);
 			return;
 		case TYPE_CONSTANT:
-			file->buffer[index + 1] = (unsigned char) ((constant_t *) g)->signal;
-			component_recurse_save(file, index + 2, (generic_t *) NULL);
-			component_recurse_save(file, index + 4, (generic_t *) NULL);
-			return;
-		case TYPE_OUTPUT:
-			file->buffer[index + 1] = (unsigned char) ((output_t *) g)->num;
-			component_recurse_save(file, index + 2, (generic_t *) ((output_t *) g)->left);
-			component_recurse_save(file, index + 4, (generic_t *) NULL);
+			printf("const\n");
+			file->buffer[*index + 1] = ((constant_t *) g)->signal;
+			printf("buffer %02x%02x\n", file->buffer[*index], file->buffer[*index + 1]);
+			*index += 2;
 			return;
 		default:
-			fprintf(stderr, "error: component_recurse_save(): invalid type to save %u\n", g->type);
-			abort();
+			fprintf(stderr, "error: component_recurse_save(): invalid type %u\n", g->type);
+			return;
 	}
 }
 
@@ -546,34 +550,59 @@ void circuit_save(circuit_t * circuit, char * filename) {
 	file.buffer[0] = circuit->num_inputs;
 	file.buffer[1] = circuit->num_outputs;
 
+	size_t index = 2;
+
 	// implement recursing through the tree and saving the node type along with some metadata and other data
 	for (size_t o = 0; o < circuit->num_outputs; ++o) {
-		component_recurse_save(&file, 2, (generic_t *) circuit_output(circuit, o));
+		component_recurse_save(&file, &index, (generic_t *) circuit_output(circuit, o));
 	}
 
+	printf("debug: circuit %p saved in memory\n", (void *) circuit);
+
+	size_t i;
+	for (i = 0; i < index; ++i) {
+		printf("%02x", file.buffer[i]);
+	}
+	putc('\n', stdout);
+
+	file.size = i;
 	fileio_save(file, filename);
+	printf("debug: circuit %p saved to file %s\n", (void *) circuit, filename);
+}
+
+void component_recurse_load(file_t * file, size_t * index, generic_t * g);
+void component_recurse_load(file_t * file, size_t * index, generic_t * g) {
+
 }
 
 circuit_t * circuit_load(char * filename) {
 	file_t file = fileio_load(filename);
 	circuit_t * circuit = circuit_new(file.buffer[0], file.buffer[1]);
 
+	size_t index = 2;
+
 	// implement recursing through the tree and loading the node type along with some metadata and other data then linking it
+	for (size_t o = 0; o < circuit->num_outputs; ++o) {
+		component_recurse_load(&file, &index, (generic_t *) circuit_output(circuit, o));
+	}
 
 	return circuit;
 }
 
 int main(void) {
-	circuit_t * global = halfadder_new();
+	circuit_t * global = circuit_new(2, 2);
 	constant_t * a = constant_new(1);
 	constant_t * b = constant_new(1);
 
-	link_to_input(circuit_input(global, 0), a);
-	link_to_input(circuit_input(global, 1), b);
+	link_to_circuit_output(global, 0, (generic_t *) circuit_input(global, 0));
+	link_to_circuit_output(global, 1, (generic_t *) circuit_input(global, 1));
+
+	link_to_circuit_input(global, 0, (generic_t *) a);
+	link_to_circuit_input(global, 1, (generic_t *) b);
 
 	printf("%u%u: %u%u\n", a->signal, b->signal, evaluate((generic_t *) circuit_output(global, 1)), evaluate((generic_t *) circuit_output(global, 0)));
 
-	circuit_save(global, "./xor.circ");
+	circuit_save(global, "./circuit.krc");
 
 	return 0;
 }

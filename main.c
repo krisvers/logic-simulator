@@ -57,6 +57,11 @@ typedef struct {
 	output_t ** outputs;
 } circuit_t;
 
+typedef struct {
+	unsigned char * buffer;
+	size_t size;
+} file_t;
+
 bool evaluate(generic_t * node);
 bool evaluate(generic_t * node) {
 	generic_t * left;
@@ -448,12 +453,66 @@ circuit_t * fulladder_new(void) {
 	return circ;
 }
 
-void circuit_save(circuit_t * circuit) {
-	
+size_t fileio_size(FILE * file) {
+	size_t size;
+	fseek(file, 0L, SEEK_END);
+	size = ftell(file);
+	fseek(file, 0L, SEEK_SET);
+
+	return size;
+}
+
+file_t fileio_load(char * filename) {
+	FILE * fp = fopen(filename, "r");
+	if (fp == NULL) {
+		fprintf(stderr, "error: fileio_load(): failed to open file %s in \"r\" mode\n", filename);
+		abort();
+	}
+
+	size_t size = fileio_size(fp);
+	unsigned char * buffer = malloc(size);
+
+	if (fread(buffer, size, 1, fp) != 1) {
+		fprintf(stderr, "error: fileio_load(): failure whilst reading from file %s\n", filename);
+		abort();
+	}
+
+	fclose(fp);
+
+	return (file_t) { buffer, size };
+}
+
+void fileio_save(file_t file, char * filename) {
+	FILE * fp = fopen(filename, "w");
+
+	if (fwrite(file.buffer, file.size, 1, fp) != 1) {
+		fprintf(stderr, "error: fileio_save(): failure whilst writing to file %s\n", filename);
+		abort();
+	}
+
+	fclose(fp);
+}
+
+void circuit_save(circuit_t * circuit, char * filename) {
+	file_t file;
+	file.size = 2;
+	file.buffer = malloc(file.size);
+
+	file.buffer[0] = circuit->num_inputs;
+	file.buffer[1] = circuit->num_outputs;
+
+	// implement recursing through the tree and saving the node type along with some metadata and other data
+
+	fileio_save(file, filename);
 }
 
 circuit_t * circuit_load(char * filename) {
-	
+	file_t file = fileio_load(filename);
+	circuit_t * circuit = circuit_new(file.buffer[0], file.buffer[1]);
+
+	// implement recursing through the tree and loading the node type along with some metadata and other data then linking it
+
+	return circuit;
 }
 
 int main(void) {

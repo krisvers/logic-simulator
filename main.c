@@ -405,7 +405,7 @@ circuit_t * circuit_new_from_blueprint(circuit_t * c) {
 	return new;
 }
 
-circuit_t * halfadder_new() {
+circuit_t * halfadder_new(void) {
 	circuit_t * c = circuit_new(2, 2);
 	input_t * a = circuit_input(c, 0);
 	input_t * b = circuit_input(c, 1);
@@ -425,7 +425,7 @@ circuit_t * halfadder_new() {
 	return c;
 }
 
-circuit_t * fulladder_new() {
+circuit_t * fulladder_new(void) {
 	circuit_t * circ = circuit_new(3, 2);
 	circuit_t * x = halfadder_new();
 	circuit_t * y = halfadder_new();
@@ -446,6 +446,14 @@ circuit_t * fulladder_new() {
 	link_to_circuit_output(circ, 1, (generic_t *) or);
 
 	return circ;
+}
+
+void circuit_save(circuit_t * circuit) {
+	
+}
+
+circuit_t * circuit_load(char * filename) {
+	
 }
 
 int main(void) {

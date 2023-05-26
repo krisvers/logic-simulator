@@ -22,3 +22,5 @@ clean:
 	@rm -rf $(shell find . -type f -name "$(OUTFILE)*")
 	@rm -rf $(shell find $(OUTDIR)/*)
 	@mkdir -p $(OUTDIR)/win32 $(OUTDIR)/default
+	@cp -R assets $(OUTDIR)/win32/
+	@cp -R assets $(OUTDIR)/default/

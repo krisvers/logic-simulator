@@ -12,6 +12,8 @@
 #define GATE_AND 2
 #define GATE_XOR 3
 
+static unsigned int circuit_id_iter = 0;
+
 char * gate_strings[4] = {
 	"not",
 	"or",
@@ -54,6 +56,7 @@ typedef struct {
 	bool signal;
 	void * left;
 	size_t num;
+	unsigned short id;
 } input_t;
 
 typedef struct {
@@ -61,6 +64,7 @@ typedef struct {
 	bool signal;
 	void * left;
 	size_t num;
+	unsigned short id;
 	void * circuit;
 } output_t;
 
@@ -69,6 +73,7 @@ typedef struct {
 	input_t ** inputs;
 	size_t num_outputs;
 	output_t ** outputs;
+	unsigned short id;
 } circuit_t;
 
 typedef struct {
@@ -198,10 +203,12 @@ circuit_t * circuit_new(size_t inputs, size_t outputs) {
 	}
 
 	c->num_inputs = inputs;
+	c->id = circuit_id_iter;
 	c->inputs = malloc(sizeof(input_t *) * inputs);
 	for (size_t i = 0; i < inputs; ++i) {
 		c->inputs[i] = input_new();
 		c->inputs[i]->num = i;
+		c->inputs[i]->id = circuit_id_iter;
 	}
 
 	c->num_outputs = outputs;
@@ -210,7 +217,10 @@ circuit_t * circuit_new(size_t inputs, size_t outputs) {
 		c->outputs[i] = output_new();
 		c->outputs[i]->num = i;
 		c->outputs[i]->circuit = (void *) c;
+		c->outputs[i]->id = circuit_id_iter;
 	}
+
+	++circuit_id_iter;
 
 	return c;
 }
@@ -513,7 +523,7 @@ void fileio_save(file_t file, char * filename) {
 
 void component_recurse_save(file_t * file, size_t * index, generic_t * g);
 void component_recurse_save(file_t * file, size_t * index, generic_t * g) {
-	if (*index + 2 >= file->size) {
+	if (*index + 4 >= file->size) {
 		file->buffer = realloc(file->buffer, *index + 1);
 		if (file->buffer == NULL) {
 			fprintf(stderr, "error: component_recurse_save(): failed to reallocate file buffer to size %llu from %llu\n", (long long unsigned int) *index + 1, (long long unsigned int) file->size);
@@ -535,7 +545,9 @@ void component_recurse_save(file_t * file, size_t * index, generic_t * g) {
 		case TYPE_OUTPUT:
 			printf("%s %lu\n", type_strings[g->type], ((input_t *) g)->num);
 			file->buffer[*index + 1] = (unsigned char) ((input_t *) g)->num;
-			*index += 2;
+			file->buffer[*index + 2] = (unsigned char) ((input_t *) g)->id & 0xFF;
+			file->buffer[*index + 3] = (unsigned char) (((input_t *) g)->id >> 8) & 0xFF;
+			*index += 4;
 			component_recurse_save(file, index, (generic_t *) ((input_t *) g)->left);
 			return;
 		case TYPE_GATE:
@@ -605,9 +617,9 @@ void * component_recurse_load(file_t * file, size_t * index, circuit_t * circuit
 			new->type = file->buffer[*index] & 3;
 			((input_t *) new)->num = file->buffer[*index + 1];
 
-			((input_t *) new)->num = file->buffer[*index + 1];
+			((input_t *) new)->id = (file->buffer[*index + 2]) | (file->buffer[*index + 1] << 8);
 
-			*index += 2;
+			*index += 4;
 			((input_t *) new)->left = component_recurse_load(file, index, circuit);
 
 			return (void *) new;
@@ -636,7 +648,9 @@ void * component_recurse_load(file_t * file, size_t * index, circuit_t * circuit
 			((output_t *) new)->circuit = circuit;
 			((output_t *) new)->num = file->buffer[*index + 1];
 
-			*index += 2;
+			((output_t *) new)->id = (file->buffer[*index + 2]) | (file->buffer[*index + 1] << 8);
+
+			*index += 4;
 			((output_t *) new)->left = component_recurse_load(file, index, circuit);
 
 			return (void *) new;
@@ -700,19 +714,19 @@ void print_node(generic_t * node) {
 
 	switch (node->type) {
 		case TYPE_INPUT:
-			printf("%s\t\t(%p)\tnum: %lu\tsignal: %u\tleft: %p\n", type_strings[node->type], (void *) node, ((input_t *) node)->num, node->signal, ((input_t *) node)->left);
+			printf("%s\t\t(%p)\tid: %u\tnum: %lu\tsignal: %u\tleft: %p\n", type_strings[node->type], (void *) node, ((input_t *) node)->id, ((input_t *) node)->num, node->signal, ((input_t *) node)->left);
 			print_node((generic_t *) ((input_t *) node)->left);
 			return;
 		case TYPE_GATE:
-			printf("%s\t\t(%p)\tgate: %u\tsignal: %u\tleft: %p\tright %p\n", type_strings[node->type], (void *) node, ((gate_t *) node)->gate, node->signal, ((gate_t *) node)->left, ((gate_t *) node)->right);
+			printf("%s\t\t(%p)\tgate: %u\t\tsignal: %u\tleft: %p\tright %p\n", type_strings[node->type], (void *) node, ((gate_t *) node)->gate, node->signal, ((gate_t *) node)->left, ((gate_t *) node)->right);
 			print_node((generic_t *) ((gate_t *) node)->left);
 			print_node((generic_t *) ((gate_t *) node)->right);
 			return;
 		case TYPE_CONSTANT:
-			printf("%s\t(%p)\tsignal: %u\n", type_strings[node->type], (void *) node, node->signal);
+			printf("%s\t(%p)\t\t\tsignal: %u\n", type_strings[node->type], (void *) node, node->signal);
 			return;
 		case TYPE_OUTPUT:
-			printf("%s\t\t(%p)\tnum: %lu\tsignal: %u\tleft: %p\n", type_strings[node->type], (void *) node, ((output_t *) node)->num, node->signal, ((output_t *) node)->left);
+			printf("%s\t\t(%p)\tid: %u\tnum: %lu\tsignal: %u\tleft: %p\n", type_strings[node->type], (void *) node, ((output_t *) node)->id, ((output_t *) node)->num, node->signal, ((output_t *) node)->left);
 			print_node((generic_t *) ((output_t *) node)->left);
 			return;
 	}

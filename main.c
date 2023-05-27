@@ -12,10 +12,24 @@
 #define GATE_AND 2
 #define GATE_XOR 3
 
+char * gate_strings[4] = {
+	"not",
+	"or",
+	"and",
+	"xor"
+};
+
 #define TYPE_INPUT 0
 #define TYPE_GATE 1
 #define TYPE_CONSTANT 2
 #define TYPE_OUTPUT 3
+
+char * type_strings[4] = {
+	"input",
+	"gate",
+	"constant",
+	"output"
+};
 
 typedef struct {
 	unsigned char type;
@@ -137,9 +151,13 @@ bool * evaluate_circuit(circuit_t * circuit) {
 		abort();
 	}
 
+	printf("start\n");
 	for (i = 0; i < circuit->num_outputs; ++i) {
+		printf("next:\n%p\n", (void *) circuit->outputs);
+		printf("%p\n", (void *) circuit->outputs[i]);
 		outputs[i] = evaluate((generic_t *) circuit->outputs[i]);
 	}
+	printf("end\n");
 
 	return outputs;
 }
@@ -495,8 +513,7 @@ void fileio_save(file_t file, char * filename) {
 
 void component_recurse_save(file_t * file, size_t * index, generic_t * g);
 void component_recurse_save(file_t * file, size_t * index, generic_t * g) {
-	if (*index >= file->size) {
-		printf("resize\n");
+	if (*index + 2 >= file->size) {
 		file->buffer = realloc(file->buffer, *index + 1);
 		if (file->buffer == NULL) {
 			fprintf(stderr, "error: component_recurse_save(): failed to reallocate file buffer to size %llu from %llu\n", (long long unsigned int) *index + 1, (long long unsigned int) file->size);
@@ -506,8 +523,8 @@ void component_recurse_save(file_t * file, size_t * index, generic_t * g) {
 
 	if (g == NULL) {
 		printf("null\n");
-		file->buffer[*index + 1] = 0xDE;
-		file->buffer[*index] = 0xAD;
+		file->buffer[*index + 1] = 0xFF;
+		file->buffer[*index] = 0xFF;
 		*index += 2;
 		return;
 	}
@@ -516,24 +533,22 @@ void component_recurse_save(file_t * file, size_t * index, generic_t * g) {
 	switch (g->type) {
 		case TYPE_INPUT:
 		case TYPE_OUTPUT:
-			printf("i/o\n");
+			printf("%s %lu\n", type_strings[g->type], ((input_t *) g)->num);
 			file->buffer[*index + 1] = (unsigned char) ((input_t *) g)->num;
-			printf("buffer %02x%02x\n", file->buffer[*index], file->buffer[*index + 1]);
 			*index += 2;
 			component_recurse_save(file, index, (generic_t *) ((input_t *) g)->left);
 			return;
 		case TYPE_GATE:
-			printf("gate\n");
+			printf("%s %s\n", type_strings[g->type], gate_strings[((gate_t *) g)->gate]);
 			file->buffer[*index + 1] = ((gate_t *) g)->gate;
-			printf("buffer %02x%02x\n", file->buffer[*index], file->buffer[*index + 1]);
 			*index += 2;
 			component_recurse_save(file, index, (generic_t *) ((gate_t *) g)->left);
 			component_recurse_save(file, index, (generic_t *) ((gate_t *) g)->right);
 			return;
 		case TYPE_CONSTANT:
-			printf("const\n");
+			printf("%s %u\n", type_strings[g->type], ((constant_t *) g)->signal);
+			//file->buffer[*index] = 0xFF; file->buffer[*index + 1] = 0xFF;
 			file->buffer[*index + 1] = ((constant_t *) g)->signal;
-			printf("buffer %02x%02x\n", file->buffer[*index], file->buffer[*index + 1]);
 			*index += 2;
 			return;
 		default:
@@ -570,29 +585,170 @@ void circuit_save(circuit_t * circuit, char * filename) {
 	printf("debug: circuit %p saved to file %s\n", (void *) circuit, filename);
 }
 
+void * component_recurse_load(file_t * file, size_t * index, circuit_t * circuit) {
+	if (*index > file->size) {
+		fprintf(stderr, "component_recurse_load(): current index %llu is larger than the file buffer size %llu\n", (long long unsigned int) *index, (long long unsigned int) file->size);
+		abort();
+	}
+
+	if (file->buffer[*index] == 0xFF && file->buffer[*index + 1] == 0xFF) {
+		printf("null\n");
+		*index += 2;
+		return NULL;
+	}
+
+	generic_t * new;
+	switch (file->buffer[*index] & 3) {
+		case TYPE_INPUT:
+			printf("%s %u\n", type_strings[file->buffer[*index] & 3], file->buffer[*index + 1]);
+			new = (generic_t *) circuit_input(circuit, file->buffer[*index + 1]);
+			new->type = file->buffer[*index] & 3;
+			((input_t *) new)->num = file->buffer[*index + 1];
+
+			((input_t *) new)->num = file->buffer[*index + 1];
+
+			*index += 2;
+			((input_t *) new)->left = component_recurse_load(file, index, circuit);
+
+			return (void *) new;
+		case TYPE_GATE:
+			printf("%s %s\n", type_strings[file->buffer[*index] & 3], gate_strings[file->buffer[*index + 1]]);
+			new = (generic_t *) gate_new(file->buffer[*index + 1]);
+			new->type = file->buffer[*index] & 3;
+			
+			*index += 2;
+			((gate_t *) new)->left = component_recurse_load(file, index, circuit);
+			((gate_t *) new)->right = component_recurse_load(file, index, circuit);
+
+			return (void *) new;
+		case TYPE_CONSTANT:
+			printf("%s %u\n", type_strings[file->buffer[*index] & 3], file->buffer[*index + 1]);
+			new = (generic_t *) constant_new(file->buffer[*index + 1]);
+			new->type = file->buffer[*index] & 3;
+
+			*index += 2;
+
+			return (void *) new;
+		case TYPE_OUTPUT:
+			printf("%s %u\n", type_strings[file->buffer[*index] & 3], file->buffer[*index + 1]);
+			new = (generic_t *) circuit_output(circuit, file->buffer[*index + 1]);
+			new->type = file->buffer[*index] & 3;
+			((output_t *) new)->circuit = circuit;
+			((output_t *) new)->num = file->buffer[*index + 1];
+
+			*index += 2;
+			((output_t *) new)->left = component_recurse_load(file, index, circuit);
+
+			return (void *) new;
+	}
+
+	fprintf(stderr, "error: component_recurse_load(): how the actual fuck did you reach this code?!?!?!?!!?!?!\n");
+	abort();
+}
+
 circuit_t * circuit_load(char * filename) {
 	file_t file = fileio_load(filename);
 	circuit_t * circuit = circuit_new(file.buffer[0], file.buffer[1]);
 
 	size_t index = 2;
+	output_t * current;
 
 	// implement recursing through the tree and loading the node type along with some metadata and other data then linking it
-	
+	for (size_t o = 0; o < circuit->num_outputs; ++o) {
+		current = component_recurse_load(&file, &index, circuit);
+	}
 
 	return circuit;
 }
 
+circuit_t * tmp() {
+	circuit_t * new = circuit_new(3, 2);
+	gate_t * xor = gate_new(GATE_XOR);
+	gate_t * xor2 = gate_new(GATE_XOR);
+	gate_t * and = gate_new(GATE_AND);
+	gate_t * and2 = gate_new(GATE_AND);
+	gate_t * or = gate_new(GATE_OR);
+	input_t * a = circuit_input(new, 0);
+	input_t * b = circuit_input(new, 1);
+	input_t * c = circuit_input(new, 2);
+	output_t * x = circuit_output(new, 0);
+	output_t * y = circuit_output(new, 1);
+
+	link_to_output(x, (generic_t *) xor2);
+	link_to_gate(xor2, (generic_t *) xor);
+	link_to_gate(xor2, (generic_t *) c);
+	link_to_gate(xor, (generic_t *) a);
+	link_to_gate(xor, (generic_t *) b);
+
+	link_to_output(y, (generic_t *) or);
+	link_to_gate(or, (generic_t *) and);
+	link_to_gate(or, (generic_t *) and2);
+
+	link_to_gate(and, (generic_t *) a);
+	link_to_gate(and, (generic_t *) b);
+	link_to_gate(and2, (generic_t *) xor);
+	link_to_gate(and2, (generic_t *) c);
+
+	return new;
+}
+
+void print_node(generic_t * node) {
+	if (node == NULL) {
+		printf("node is NULL\n");
+		return;
+	}
+
+	switch (node->type) {
+		case TYPE_INPUT:
+			printf("%s\t\t(%p)\tnum: %lu\tsignal: %u\tleft: %p\n", type_strings[node->type], (void *) node, ((input_t *) node)->num, node->signal, ((input_t *) node)->left);
+			print_node((generic_t *) ((input_t *) node)->left);
+			return;
+		case TYPE_GATE:
+			printf("%s\t\t(%p)\tgate: %u\tsignal: %u\tleft: %p\tright %p\n", type_strings[node->type], (void *) node, ((gate_t *) node)->gate, node->signal, ((gate_t *) node)->left, ((gate_t *) node)->right);
+			print_node((generic_t *) ((gate_t *) node)->left);
+			print_node((generic_t *) ((gate_t *) node)->right);
+			return;
+		case TYPE_CONSTANT:
+			printf("%s\t(%p)\tsignal: %u\n", type_strings[node->type], (void *) node, node->signal);
+			return;
+		case TYPE_OUTPUT:
+			printf("%s\t\t(%p)\tnum: %lu\tsignal: %u\tleft: %p\n", type_strings[node->type], (void *) node, ((output_t *) node)->num, node->signal, ((output_t *) node)->left);
+			print_node((generic_t *) ((output_t *) node)->left);
+			return;
+	}
+
+	fprintf(stderr, "error: print_node(): invalid type %u\n", node->type);
+	abort();
+}
+
 int main(void) {
-	circuit_t * global = halfadder_new();
+	circuit_t * circuit = fulladder_new();
 	constant_t * a = constant_new(1);
 	constant_t * b = constant_new(1);
+	constant_t * c = constant_new(1);
 
-	link_to_circuit_input(global, 0, (generic_t *) a);
-	link_to_circuit_input(global, 1, (generic_t *) b);
+	link_to_circuit_input(circuit, 0, (generic_t *) a);
+	link_to_circuit_input(circuit, 1, (generic_t *) b);
+	link_to_circuit_input(circuit, 2, (generic_t *) c);
 
-	printf("%u%u: %u%u\n", a->signal, b->signal, evaluate((generic_t *) circuit_output(global, 1)), evaluate((generic_t *) circuit_output(global, 0)));
+	printf("out 0:\n");
+	print_node((generic_t *) circuit_output(circuit, 0));
+	printf("out 1:\n");
+	print_node((generic_t *) circuit_output(circuit, 1));
 
-	circuit_save(global, "./circuit.krc");
+	printf("%u%u%u: %u%u\n", a->signal, b->signal, c->signal, evaluate((generic_t *) circuit_output(circuit, 1)), evaluate((generic_t *) circuit_output(circuit, 0)));
+
+	circuit_save(circuit, "./circuit.krc");
+	circuit = circuit_load("./circuit.krc");
+
+	printf("out 0:\n");
+	print_node((generic_t *) circuit_output(circuit, 0));
+	printf("out 1:\n");
+	print_node((generic_t *) circuit_output(circuit, 1));
+
+	printf("\n\nevaluate:\n\n");
+
+	printf("%u%u%u: %u%u\n", a->signal, b->signal, c->signal, evaluate((generic_t *) circuit_output(circuit, 1)), evaluate((generic_t *) circuit_output(circuit, 0)));
 
 	return 0;
 }
